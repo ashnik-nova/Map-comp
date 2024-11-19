@@ -58,7 +58,7 @@ const PointsTable = ({ markers, onDelete }) => {
         accessor: 'id',
         Cell: ({ row }) => (
           <button
-            onClick={() => onDelete(row.index)}
+            onClick={() => onDelete(row.original.id)}
             className="text-red-500 hover:underline"
             title="Delete"
           >
@@ -67,7 +67,7 @@ const PointsTable = ({ markers, onDelete }) => {
         ),
       },
     ],
-    []
+    [onDelete]
   );
 
   const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } = useTable({ columns, data });
@@ -114,21 +114,24 @@ const MapComponent = ({ showWavepoints }) => {
   const [zoom, setZoom] = useState(13);
 
   const handleMapClick = (e) => {
-    const newMarker = { lat: e.latlng.lat, lng: e.latlng.lng, id: markers.length };
+    const newMarker = { lat: e.latlng.lat, lng: e.latlng.lng, id: Date.now() };
     setMarkers((prevMarkers) => {
       const updatedMarkers = [...prevMarkers, newMarker];
-      setPolyline(updatedMarkers.map(marker => [marker.lat, marker.lng]));
-
-      let newTotalDistance = 0;
-      for (let i = 0; i < updatedMarkers.length - 1; i++) {
-        newTotalDistance += calculateDistance(
-          updatedMarkers[i].lat, updatedMarkers[i].lng,
-          updatedMarkers[i + 1].lat, updatedMarkers[i + 1].lng
-        );
-      }
-      setTotalDistance(newTotalDistance);
+      updatePolylineAndDistance(updatedMarkers);
       return updatedMarkers;
     });
+  };
+
+  const updatePolylineAndDistance = (updatedMarkers) => {
+    setPolyline(updatedMarkers.map(marker => [marker.lat, marker.lng]));
+    let newTotalDistance = 0;
+    for (let i = 0; i < updatedMarkers.length - 1; i++) {
+      newTotalDistance += calculateDistance(
+        updatedMarkers[i].lat, updatedMarkers[i].lng,
+        updatedMarkers[i + 1].lat, updatedMarkers[i + 1].lng
+      );
+    }
+    setTotalDistance(newTotalDistance);
   };
 
   const handleMouseMove = (e) => {
@@ -146,18 +149,10 @@ const MapComponent = ({ showWavepoints }) => {
     return `${degrees}° ${minutes}' ${seconds}" ${direction}`;
   };
 
-  const handleDeleteMarker = (index) => {
-    const updatedMarkers = markers.filter((_, i) => i !== index);
+  const handleDeleteMarker = (id) => {
+    const updatedMarkers = markers.filter((marker) => marker.id !== id);
     setMarkers(updatedMarkers);
-    setPolyline(updatedMarkers.map(marker => [marker.lat, marker.lng]));
-    let newTotalDistance = 0;
-    for (let i = 0; i < updatedMarkers.length - 1; i++) {
-      newTotalDistance += calculateDistance(
-        updatedMarkers[i].lat, updatedMarkers[i].lng,
-        updatedMarkers[i + 1].lat, updatedMarkers[i + 1].lng
-      );
-    }
-    setTotalDistance(newTotalDistance);
+    updatePolylineAndDistance(updatedMarkers);
   };
 
   return (
@@ -176,7 +171,7 @@ const MapComponent = ({ showWavepoints }) => {
             />
             <MapEvents onMapClick={handleMapClick} onMouseMove={handleMouseMove} />
             {markers.map((position) => (
-              <Marker key={`${position.lat}-${position.lng}`} position={[position.lat, position.lng]} />
+              <Marker key={position.id} position={[position.lat, position.lng]} />
             ))}
             {polyline.length > 1 && <Polyline positions={polyline} color="blue" />}
           </MapContainer>
